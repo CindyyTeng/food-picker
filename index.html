@@ -161,7 +161,7 @@
     function addNewItem(pid) {
         const parent = allData.find(d => d.id == pid);
         const now = Date.now();
-        const currentTime = new Date.now().toISOString(); // 產生 ISO 格式的時間字串
+        const currentTime = new Date().toISOString(); // 產生 ISO 格式的時間字串
         
         if (pid !== 0 && parent) {
             // 子關卡：自動產生一組對決
