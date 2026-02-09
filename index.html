@@ -271,19 +271,23 @@
     async function saveToCloud() {
         document.getElementById('loader').style.display = 'flex';
         // 採刪除舊有資料再插入新資料的方式同步
-        await client.from('restaurants').delete().neq('id', 0);
-        const { error } = await client.from('restaurants').insert(allData);
-        if (!error) {
-            alert("🎉 雲端魔樹同步成功！");
-            location.reload();
-        } else {
-            alert("儲存出錯：" + error.message);
+        try{
+            await client.from('restaurants').delete().neq('id', 0);
+            const { error } = await client.from('restaurants').insert(allData);
+            if (!error) {
+                alert("🎉 雲端魔樹同步成功！");
+                location.reload();
+            } else {
+                alert("儲存出錯：" + error.message);
+            }
+        }catch(e){
+            alert("系統錯誤：" + e.message);
         }
+            
         document.getElementById('loader').style.display = 'none';
     }
 
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
+    //啟動程式
     init();
 </script>
 </body>
