@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>雲端選餐神器</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { background: #111; color: #fff; font-family: -apple-system, sans-serif; margin: 0; padding: 20px; text-align: center; }
+        .title { color: #ff4757; font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; }
+        .box { width: 100%; height: 220px; margin-bottom: 15px; border-radius: 20px; overflow: hidden; position: relative; border: 3px solid #333; background: #222; }
+        img { width: 100%; height: 100%; object-fit: cover; }
+        .label { position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.7); padding: 12px; font-weight: bold; font-size: 1.2rem; }
+        #admin, #res { display: none; position: fixed; inset: 0; background: #000; padding: 20px; z-index: 999; overflow-y: auto; }
+        .btn { background: #ff4757; color: white; padding: 15px; border-radius: 12px; font-weight: bold; border: none; width: 100%; font-size: 1rem; margin-top: 10px; cursor: pointer; }
+        .admin-item { background: #1a1a1a; padding: 15px; margin-bottom: 15px; border-radius: 15px; text-align: left; border: 1px solid #333; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; box-sizing: border-box; background: #333; color: white; }
+        .set-link { color: #666; margin-top: 30px; display: block; text-decoration: underline; font-size: 0.9rem; }
+        .loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 1000; }
+    </style>
+</head>
+<body>
+
+<div id="loader" class="loading-overlay">處理中...</div>
+
+<div class="title">🍔 今日午餐對決</div>
+<div id="main-ui">
+    <div class="box" onclick="pick(0)"><img id="i0"><div class="label" id="t0">載入中...</div></div>
+    <div class="box" onclick="pick(1)"><img id="i1"><div class="label" id="t1">載入中...</div></div>
+</div>
+
+<a href="javascript:void(0)" class="set-link" onclick="openAdmin()">⚙️ 管理雲端名單 (A/B 同步)</a>
+
+<div id="res">
+    <h2 style="color:#ff4757">決定就是你了！</h2>
+    <img id="ri" style="width:100%; border-radius:20px; max-height: 55vh; object-fit: cover; border: 3px solid #ff4757;">
+    <h1 id="rn" style="font-size: 2rem;"></h1>
+    <button class="btn" onclick="location.reload()">回首頁重新選</button>
+</div>
+
+<div id="admin">
+    <h2>雲端名單編輯</h2>
+    <p style="color:#aaa; font-size: 0.8rem;">修改後按儲存，所有人的畫面都會同步更新</p>
+    <div id="list">正在連線至雲端...</div>
+    <button class="btn" onclick="saveAll()">💾 儲存並發布同步</button>
+    <button class="btn" style="background:#444" onclick="location.reload()">取消返回</button>
+</div>
+
+<script>
+    // --- 🔑 請在此填入你的 Supabase 資訊 ---
+    const SB_URL = "https://zmgpnqluwxwkntdrwieg.supabase.co"; 
+    const SB_KEY = "sb_publishable_z_i1UJ15EOU6z7_Bv3dAvg_lWoG3UA7";
+    // --------------------------------------
+
+    const supabase = typeof supabase !== 'undefined' ? supabase : window.supabase;
+    const client = supabase.createClient(SB_URL, SB_KEY);
+    let items = [];
+
+    // 初始化載入
+    async function loadData() {
+        const { data, error } = await client.from('restaurants').select('*');
+        if (data && data.length >= 2) {
+            items = data;
+            const shuffled = [...items].sort(() => 0.5 - Math.random()).slice(0, 2);
+            document.getElementById('i0').src = shuffled[0].image_url; 
+            document.getElementById('t0').innerText = shuffled[0].name;
+            document.getElementById('i1').src = shuffled[1].image_url; 
+            document.getElementById('t1').innerText = shuffled[1].name;
+            window.shuffled = shuffled;
+        } else {
+            document.getElementById('t0').innerText = "點擊下方管理";
+            document.getElementById('t1').innerText = "新增餐廳資料";
+        }
+    }
+
+    function pick(idx) {
+        if(!window.shuffled) return;
+        document.getElementById('ri').src = window.shuffled[idx].image_url;
+        document.getElementById('rn').innerText = window.shuffled[idx].name;
+        document.getElementById('res').style.display = 'block';
+    }
+
+    function openAdmin() {
+        renderList();
+        document.getElementById('admin').style.display = 'block';
+    }
+
+    function renderList() {
+        let h = '';
+        // 預設顯示 4 個位置供填寫
+        for(let i=0; i<4; i++) {
+            const item = items[i] || { name: "", image_url: "https://via.placeholder.com/400x200?text=No+Image" };
+            h += `<div class="admin-item">
+                店名：<input id="n${i}" value="${item.name}" placeholder="輸入餐廳名稱">
+                上傳照片：<input type="file" accept="image/*" onchange="upload(this, ${i})">
+                <input type="hidden" id="u${i}" value="${item.image_url}">
+                <div id="msg${i}" style="font-size:12px;color:#ff4757;margin-top:5px;">${item.name ? '✅ 雲端已有照片' : '待上傳'}</div>
+            </div>`;
+        }
+        document.getElementById('list').innerHTML = h;
+    }
+
+    async function upload(input, idx) {
+        const file = input.files[0];
+        if(!file) return;
+        
+        document.getElementById('loader').style.display = 'flex';
+        document.getElementById(`msg${idx}`).innerText = "正在傳送至雲端...";
+        
+        const fileName = `img_${Date.now()}_${idx}.jpg`;
+        const { data, error } = await client.storage.from('food-images').upload(fileName, file);
+        
+        if (data) {
+            const publicUrl = `${SB_URL}/storage/v1/object/public/food-images/${fileName}`;
+            document.getElementById(`u${idx}`).value = publicUrl;
+            document.getElementById(`msg${idx}`).innerText = "✅ 照片已就緒";
+        } else {
+            alert("上傳失敗：" + error.message);
+        }
+        document.getElementById('loader').style.display = 'none';
+    }
+
+    async function saveAll() {
+        document.getElementById('loader').style.display = 'flex';
+        const newItems = [];
+        for(let i=0; i<4; i++) {
+            const name = document.getElementById(`n${i}`).value;
+            const url = document.getElementById(`u${i}`).value;
+            if(name && url && !url.includes('placeholder')) {
+                newItems.push({ name, image_url: url });
+            }
+        }
+        
+        if(newItems.length < 2) {
+            alert("請至少填寫兩家餐廳並上傳照片喔！");
+            document.getElementById('loader').style.display = 'none';
+            return;
+        }
+
+        // 1. 清除舊資料 2. 寫入新資料
+        await client.from('restaurants').delete().neq('id', 0); 
+        const { error } = await client.from('restaurants').insert(newItems);
+        
+        if(!error) {
+            alert("🎉 同步成功！現在任何人打開網址都會看到最新名單。");
+            location.reload();
+        } else {
+            alert("儲存出錯：" + error.message);
+        }
+        document.getElementById('loader').style.display = 'none';
+    }
+
+    loadData();
+</script>
+</body>
+</html>
