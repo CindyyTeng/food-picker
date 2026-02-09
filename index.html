@@ -47,47 +47,42 @@
 </div>
 
 <script>
-    // --- 🔑 請在此填入你的 Supabase 資訊 ---
+   // --- 🔑 請在此填入你的 Supabase 資訊 ---
     const SB_URL = "https://zmgpnqluwxwkntdrwieg.supabase.co"; 
     const SB_KEY = "sb_publishable_z_i1UJ15EOU6z7_Bv3dAvg_lWoG3UA7";
     // --------------------------------------
 
-    const supabase = typeof supabase !== 'undefined' ? supabase : window.supabase;
-    const client = supabase.createClient(SB_URL, SB_KEY);
+    // 修復衝突：直接使用建立好的 client
+    const client = window.supabase.createClient(SB_URL, SB_KEY);
     let items = [];
 
     // 初始化載入
     async function loadData() {
-        const { data, error } = await client.from('restaurants').select('*');
-        if (data && data.length >= 2) {
-            items = data;
-            const shuffled = [...items].sort(() => 0.5 - Math.random()).slice(0, 2);
-            document.getElementById('i0').src = shuffled[0].image_url; 
-            document.getElementById('t0').innerText = shuffled[0].name;
-            document.getElementById('i1').src = shuffled[1].image_url; 
-            document.getElementById('t1').innerText = shuffled[1].name;
-            window.shuffled = shuffled;
-        } else {
-            document.getElementById('t0').innerText = "點擊下方管理";
-            document.getElementById('t1').innerText = "新增餐廳資料";
-        }
+        try {
+            const { data, error } = await client.from('restaurants').select('*');
+            if (data && data.length >= 2) {
+                items = data;
+                const shuffled = [...items].sort(() => 0.5 - Math.random()).slice(0, 2);
+                document.getElementById('i0').src = shuffled[0].image_url; 
+                document.getElementById('t0').innerText = shuffled[0].name;
+                document.getElementById('i1').src = shuffled[1].image_url; 
+                document.getElementById('t1').innerText = shuffled[1].name;
+                window.shuffled = shuffled;
+            } else {
+                document.getElementById('t0').innerText = "點擊下方管理";
+                document.getElementById('t1').innerText = "新增餐廳資料";
+            }
+        } catch (e) { console.error(e); }
     }
 
-    function pick(idx) {
-        if(!window.shuffled) return;
-        document.getElementById('ri').src = window.shuffled[idx].image_url;
-        document.getElementById('rn').innerText = window.shuffled[idx].name;
-        document.getElementById('res').style.display = 'block';
-    }
-
-    function openAdmin() {
+    // 這些功能現在會被正確讀取了
+    window.openAdmin = function() {
         renderList();
         document.getElementById('admin').style.display = 'block';
     }
 
     function renderList() {
         let h = '';
-        // 預設顯示 4 個位置供填寫
         for(let i=0; i<4; i++) {
             const item = items[i] || { name: "", image_url: "https://via.placeholder.com/400x200?text=No+Image" };
             h += `<div class="admin-item">
@@ -100,10 +95,9 @@
         document.getElementById('list').innerHTML = h;
     }
 
-    async function upload(input, idx) {
+    window.upload = async function(input, idx) {
         const file = input.files[0];
         if(!file) return;
-        
         document.getElementById('loader').style.display = 'flex';
         document.getElementById(`msg${idx}`).innerText = "正在傳送至雲端...";
         
@@ -120,7 +114,7 @@
         document.getElementById('loader').style.display = 'none';
     }
 
-    async function saveAll() {
+    window.saveAll = async function() {
         document.getElementById('loader').style.display = 'flex';
         const newItems = [];
         for(let i=0; i<4; i++) {
@@ -137,17 +131,23 @@
             return;
         }
 
-        // 1. 清除舊資料 2. 寫入新資料
         await client.from('restaurants').delete().neq('id', 0); 
         const { error } = await client.from('restaurants').insert(newItems);
         
         if(!error) {
-            alert("🎉 同步成功！現在任何人打開網址都會看到最新名單。");
+            alert("🎉 同步成功！");
             location.reload();
         } else {
             alert("儲存出錯：" + error.message);
         }
         document.getElementById('loader').style.display = 'none';
+    }
+
+    window.pick = function(idx) {
+        if(!window.shuffled) return;
+        document.getElementById('ri').src = window.shuffled[idx].image_url;
+        document.getElementById('rn').innerText = window.shuffled[idx].name;
+        document.getElementById('res').style.display = 'block';
     }
 
     loadData();
