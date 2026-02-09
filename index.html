@@ -1,156 +1,217 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>雲端選餐神器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>進階雲端選餐魔樹</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        body { background: #111; color: #fff; font-family: -apple-system, sans-serif; margin: 0; padding: 20px; text-align: center; }
-        .title { color: #ff4757; font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; }
-        .box { width: 100%; height: 220px; margin-bottom: 15px; border-radius: 20px; overflow: hidden; position: relative; border: 3px solid #333; background: #222; }
-        img { width: 100%; height: 100%; object-fit: cover; }
-        .label { position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.7); padding: 12px; font-weight: bold; font-size: 1.2rem; }
-        #admin, #res { display: none; position: fixed; inset: 0; background: #000; padding: 20px; z-index: 999; overflow-y: auto; }
-        .btn { background: #ff4757; color: white; padding: 15px; border-radius: 12px; font-weight: bold; border: none; width: 100%; font-size: 1rem; margin-top: 10px; cursor: pointer; }
-        .admin-item { background: #1a1a1a; padding: 15px; margin-bottom: 15px; border-radius: 15px; text-align: left; border: 1px solid #333; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; box-sizing: border-box; background: #333; color: white; }
-        .set-link { color: #666; margin-top: 30px; display: block; text-decoration: underline; font-size: 0.9rem; }
-        .loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        :root { --primary: #ff4757; --bg: #121212; --card: #1e1e1e; }
+        body { background: var(--bg); color: #fff; font-family: sans-serif; margin: 0; padding: 20px; text-align: center; }
+        .title { color: var(--primary); font-size: 1.5rem; margin-bottom: 20px; font-weight: bold; }
+        
+        /* 遊戲介面 */
+        .game-container { display: flex; flex-direction: column; gap: 15px; max-width: 500px; margin: 0 auto; }
+        .choice-box { width: 100%; height: 200px; border-radius: 15px; overflow: hidden; position: relative; cursor: pointer; border: 3px solid #333; transition: 0.3s; }
+        .choice-box:hover { border-color: var(--primary); }
+        .choice-box img { width: 100%; height: 100%; object-fit: cover; }
+        .choice-label { position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.7); padding: 10px; font-size: 1.2rem; }
+        
+        /* 管理介面 (縮排清單) */
+        #admin { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; overflow-y: auto; padding: 20px; text-align: left; }
+        .outline-item { margin-left: 25px; border-left: 2px dashed #444; padding: 10px 0 10px 15px; position: relative; }
+        .outline-item::before { content: "┕"; position: absolute; left: 0; color: #444; }
+        .item-card { background: var(--card); padding: 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; }
+        .item-card img { width: 40px; height: 40px; border-radius: 5px; object-fit: cover; }
+        .btn-sm { font-size: 0.8rem; padding: 4px 8px; cursor: pointer; background: #444; color: #fff; border: none; border-radius: 4px; }
+        .btn-add { background: #2ed573; }
+        .btn-del { background: #ff4757; }
+        .btn-save { position: sticky; bottom: 20px; width: 100%; padding: 15px; background: var(--primary); font-weight: bold; font-size: 1.1rem; }
+        
+        #result-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; padding: 40px 20px; }
+        .loading { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 3000; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
 
-<div id="loader" class="loading-overlay">處理中...</div>
+<div id="loader" class="loading">處理中...</div>
 
-<div class="title">🍔 今日午餐對決</div>
-<div id="main-ui">
-    <div class="box" onclick="pick(0)"><img id="i0"><div class="label" id="t0">載入中...</div></div>
-    <div class="box" onclick="pick(1)"><img id="i1"><div class="label" id="t1">載入中...</div></div>
+<div id="game-ui">
+    <div class="title">🍔 糾結終結者</div>
+    <div id="breadcrumb" style="color:#888; margin-bottom:10px; font-size:0.9rem;"></div>
+    <div class="game-container" id="choices-area">
+        </div>
+    <div style="margin-top: 20px;">
+        <button class="btn-sm" onclick="resetGame()">↩ 重頭開始</button>
+        <button class="btn-sm" onclick="openAdmin()" style="margin-left:10px;">⚙️ 設定路徑</button>
+    </div>
 </div>
 
-<a href="javascript:void(0)" class="set-link" onclick="openAdmin()">⚙️ 管理雲端名單 (A/B 同步)</a>
-
-<div id="res">
-    <h2 style="color:#ff4757">決定就是你了！</h2>
-    <img id="ri" style="width:100%; border-radius:20px; max-height: 55vh; object-fit: cover; border: 3px solid #ff4757;">
-    <h1 id="rn" style="font-size: 2rem;"></h1>
-    <button class="btn" onclick="location.reload()">回首頁重新選</button>
+<div id="result-overlay">
+    <h2 style="color:var(--primary)">最後決定吃：</h2>
+    <img id="res-img" style="width:100%; max-height:60vh; border-radius:15px; object-fit: cover;">
+    <h1 id="res-name"></h1>
+    <button class="btn-save" style="position:static" onclick="location.reload()">再玩一次</button>
 </div>
 
 <div id="admin">
-    <h2>雲端名單編輯</h2>
-    <p style="color:#aaa; font-size: 0.8rem;">修改後按儲存，所有人的畫面都會同步更新</p>
-    <div id="list">正在連線至雲端...</div>
-    <button class="btn" onclick="saveAll()">💾 儲存並發布同步</button>
-    <button class="btn" style="background:#444" onclick="location.reload()">取消返回</button>
+    <h2>🌲 設定選餐路徑 (縮排清單)</h2>
+    <p style="font-size:0.8rem; color:#aaa;">點擊「+」在該選項下新增下一題的對手</p>
+    <div id="outline-root">
+        <button class="btn-add" onclick="addNewItem(0)">+ 新增第一關選項</button>
+        <div id="tree-container"></div>
+    </div>
+    <button class="btn-save" onclick="saveToCloud()">💾 儲存所有變更並發布</button>
+    <button class="btn-sm" style="width:100%; margin-top:10px; background:#333;" onclick="location.reload()">取消並返回</button>
 </div>
 
 <script>
-   // --- 🔑 請在此填入你的 Supabase 資訊 ---
-    const SB_URL = "https://zmgpnqluwxwkntdrwieg.supabase.co"; 
+    const SB_URL = "https://zmgpnqluwxwkntdrwieg.supabase.co";
     const SB_KEY = "sb_publishable_z_i1UJ15EOU6z7_Bv3dAvg_lWoG3UA7";
-    // --------------------------------------
+    const client = supabase.createClient(SB_URL, SB_KEY);
 
-    // 修復衝突：直接使用建立好的 client
-    const client = window.supabase.createClient(SB_URL, SB_KEY);
-    let items = [];
+    let allData = []; // 雲端總資料
+    let currentParentId = 0; // 遊戲目前進度
 
-    // 初始化載入
-    async function loadData() {
-        try {
-            const { data, error } = await client.from('restaurants').select('*');
-            if (data && data.length >= 2) {
-                items = data;
-                const shuffled = [...items].sort(() => 0.5 - Math.random()).slice(0, 2);
-                document.getElementById('i0').src = shuffled[0].image_url; 
-                document.getElementById('t0').innerText = shuffled[0].name;
-                document.getElementById('i1').src = shuffled[1].image_url; 
-                document.getElementById('t1').innerText = shuffled[1].name;
-                window.shuffled = shuffled;
-            } else {
-                document.getElementById('t0').innerText = "點擊下方管理";
-                document.getElementById('t1').innerText = "新增餐廳資料";
-            }
-        } catch (e) { console.error(e); }
+    // 1. 初始化
+    async function init() {
+        const { data } = await client.from('restaurants').select('*');
+        allData = data || [];
+        renderGame();
     }
 
-    // 這些功能現在會被正確讀取了
-    window.openAdmin = function() {
-        renderList();
-        document.getElementById('admin').style.display = 'block';
-    }
+    // 2. 遊戲邏輯
+    function renderGame() {
+        const choices = allData.filter(item => item.parent_id == currentParentId);
+        const area = document.getElementById('choices-area');
+        area.innerHTML = '';
 
-    function renderList() {
-        let h = '';
-        for(let i=0; i<4; i++) {
-            const item = items[i] || { name: "", image_url: "https://via.placeholder.com/400x200?text=No+Image" };
-            h += `<div class="admin-item">
-                店名：<input id="n${i}" value="${item.name}" placeholder="輸入餐廳名稱">
-                上傳照片：<input type="file" accept="image/*" onchange="upload(this, ${i})">
-                <input type="hidden" id="u${i}" value="${item.image_url}">
-                <div id="msg${i}" style="font-size:12px;color:#ff4757;margin-top:5px;">${item.name ? '✅ 雲端已有照片' : '待上傳'}</div>
-            </div>`;
-        }
-        document.getElementById('list').innerHTML = h;
-    }
-
-    window.upload = async function(input, idx) {
-        const file = input.files[0];
-        if(!file) return;
-        document.getElementById('loader').style.display = 'flex';
-        document.getElementById(`msg${idx}`).innerText = "正在傳送至雲端...";
-        
-        const fileName = `img_${Date.now()}_${idx}.jpg`;
-        const { data, error } = await client.storage.from('food-images').upload(fileName, file);
-        
-        if (data) {
-            const publicUrl = `${SB_URL}/storage/v1/object/public/food-images/${fileName}`;
-            document.getElementById(`u${idx}`).value = publicUrl;
-            document.getElementById(`msg${idx}`).innerText = "✅ 照片已就緒";
-        } else {
-            alert("上傳失敗：" + error.message);
-        }
-        document.getElementById('loader').style.display = 'none';
-    }
-
-    window.saveAll = async function() {
-        document.getElementById('loader').style.display = 'flex';
-        const newItems = [];
-        for(let i=0; i<4; i++) {
-            const name = document.getElementById(`n${i}`).value;
-            const url = document.getElementById(`u${i}`).value;
-            if(name && url && !url.includes('placeholder')) {
-                newItems.push({ name, image_url: url });
-            }
-        }
-        
-        if(newItems.length < 2) {
-            alert("請至少填寫兩家餐廳並上傳照片喔！");
-            document.getElementById('loader').style.display = 'none';
+        if (choices.length === 0) {
+            // 如果沒東西，可能是沒資料
+            area.innerHTML = '<p>目前沒有資料，請點擊下方設定</p>';
             return;
         }
 
-        await client.from('restaurants').delete().neq('id', 0); 
-        const { error } = await client.from('restaurants').insert(newItems);
-        
-        if(!error) {
-            alert("🎉 同步成功！");
+        choices.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'choice-box';
+            div.onclick = () => handleChoice(item);
+            div.innerHTML = `
+                <img src="${item.image_url}">
+                <div class="choice-label">${item.name}</div>
+            `;
+            area.appendChild(div);
+        });
+    }
+
+    function handleChoice(selected) {
+        const children = allData.filter(item => item.parent_id == selected.id);
+        if (children.length > 0) {
+            // 還有下一關
+            currentParentId = selected.id;
+            renderGame();
+        } else {
+            // 到終點了
+            showResult(selected);
+        }
+    }
+
+    function showResult(item) {
+        document.getElementById('res-img').src = item.image_url;
+        document.getElementById('res-name').innerText = item.name;
+        document.getElementById('result-overlay').style.display = 'block';
+    }
+
+    function resetGame() {
+        currentParentId = 0;
+        renderGame();
+    }
+
+    // 3. 管理員邏輯 (縮排介面)
+    function openAdmin() {
+        document.getElementById('admin').style.display = 'block';
+        renderTree();
+    }
+
+    function renderTree(pid = 0, container = null) {
+        if (!container) {
+            container = document.getElementById('tree-container');
+            container.innerHTML = '';
+        }
+
+        const children = allData.filter(d => d.parent_id == pid);
+        children.forEach(item => {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'outline-item';
+            wrapper.innerHTML = `
+                <div class="item-card">
+                    <img src="${item.image_url}" onclick="changeImg(${item.id})">
+                    <input type="text" value="${item.name}" onchange="updateName(${item.id}, this.value)" style="background:none; border:none; color:white; border-bottom:1px solid #444;">
+                    <button class="btn-add btn-sm" onclick="addNewItem(${item.id})">+</button>
+                    <button class="btn-del btn-sm" onclick="deleteItem(${item.id})">×</button>
+                </div>
+                <div id="child-of-${item.id}"></div>
+            `;
+            container.appendChild(wrapper);
+            renderTree(item.id, document.getElementById(`child-of-${item.id}`));
+        });
+    }
+
+    function addNewItem(pid) {
+        const newId = Date.now();
+        allData.push({
+            id: newId,
+            name: "新選項",
+            image_url: "https://via.placeholder.com/150?text=Wait+Image",
+            parent_id: pid
+        });
+        renderTree();
+    }
+
+    function updateName(id, val) {
+        const item = allData.find(d => d.id == id);
+        if (item) item.name = val;
+    }
+
+    function deleteItem(id) {
+        allData = allData.filter(d => d.id != id && d.parent_id != id);
+        renderTree();
+    }
+
+    async function changeImg(id) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.onchange = async (e) => {
+            const file = e.target.files[0];
+            document.getElementById('loader').style.display = 'flex';
+            const fileName = `tree_${Date.now()}.jpg`;
+            const { data } = await client.storage.from('food-images').upload(fileName, file);
+            if (data) {
+                const url = `${SB_URL}/storage/v1/object/public/food-images/${fileName}`;
+                const item = allData.find(d => d.id == id);
+                item.image_url = url;
+                renderTree();
+            }
+            document.getElementById('loader').style.display = 'none';
+        };
+        input.click();
+    }
+
+    async function saveToCloud() {
+        document.getElementById('loader').style.display = 'flex';
+        // 簡單做法：清空再寫入
+        await client.from('restaurants').delete().neq('id', 0);
+        const { error } = await client.from('restaurants').insert(allData);
+        if (!error) {
+            alert("雲端同步成功！");
             location.reload();
         } else {
-            alert("儲存出錯：" + error.message);
+            alert("錯誤：" + error.message);
         }
         document.getElementById('loader').style.display = 'none';
     }
 
-    window.pick = function(idx) {
-        if(!window.shuffled) return;
-        document.getElementById('ri').src = window.shuffled[idx].image_url;
-        document.getElementById('rn').innerText = window.shuffled[idx].name;
-        document.getElementById('res').style.display = 'block';
-    }
-
-    loadData();
+    init();
 </script>
 </body>
 </html>
