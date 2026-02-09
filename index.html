@@ -43,23 +43,23 @@
 </div>
 
 <div id="game-ui">
-    <div class="title">🍔 糾結終結者：決策魔樹</div>
+    <div class="title">我們家温温想吃~</div>
     <div class="game-container" id="choices-area"></div>
     <div style="margin-top: 30px;">
         <button class="btn-sm" onclick="resetGame()">↩ 重頭開始</button>
-        <button class="btn-sm" onclick="openAdmin()" style="margin-left:10px; background: #555;">⚙️ 設定路徑</button>
+        <button class="btn-sm" onclick="openAdmin()" style="margin-left:10px; background: #555;">⚙️ 設定</button>
     </div>
 </div>
 
 <div id="result-overlay">
-    <h2 style="color:var(--primary)">最後決定吃：</h2>
+    <h2 style="color:var(--primary)">最後決定嘟逼嘟逼嘟：</h2>
     <img id="res-img" style="width:100%; max-height:50vh; border-radius:15px; object-fit: cover; margin: 20px 0; object-fit: contain;">
     <h1 id="res-name"></h1>
     <button class="btn-save" style="position:static" onclick="location.reload()">再玩一次</button>
 </div>
 
 <div id="admin">
-    <h2>🌲 設定選餐路徑</h2>
+    <h2>🌲 設定選項路徑</h2>
     <p style="font-size:0.8rem; color:#aaa; margin-bottom: 20px;">
         💡 提示：點擊「+」會自動建立一組對決，其中一個會繼承父項。點擊小圖示可換圖。
     </p>
@@ -157,11 +157,20 @@
         });
     }
 
+    //強制計算台灣時間的函數
+    function getTaiwanTime(){
+        const now = new Date();
+        //加上8小時的毫秒數
+        const tzOffset = 8 * 60 * 60 * 1000;
+        const taiwanDate = new Date(now.getTime() + tzOffset );
+        return taiwanDate.toISOString().replace('T', '').substring(0, 19);
+    }
+
     // 邏輯優化：點擊 + 自動生兩個 (一個繼承，一個空白)
     function addNewItem(pid) {
         const parent = allData.find(d => d.id == pid);
         const now = Date.now();       
-        const currentTime = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Taipei' }); //取得當下台灣時區的時間
+        const currentTime = getTaiwanTime(); //取得當下台灣時區的時間
         
         if (pid !== 0 && parent) {
             // 子關卡：自動產生一組對決
