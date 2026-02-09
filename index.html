@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>進階雲端選餐魔樹</title>
+    <title>進階雲端選餐魔樹 - 優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root { --primary: #ff4757; --bg: #121212; --card: #1e1e1e; }
@@ -13,82 +13,87 @@
         /* 遊戲介面 */
         .game-container { display: flex; flex-direction: column; gap: 15px; max-width: 500px; margin: 0 auto; }
         .choice-box { width: 100%; height: 200px; border-radius: 15px; overflow: hidden; position: relative; cursor: pointer; border: 3px solid #333; transition: 0.3s; }
-        .choice-box:hover { border-color: var(--primary); }
+        .choice-box:hover { border-color: var(--primary); transform: scale(1.02); }
         .choice-box img { width: 100%; height: 100%; object-fit: cover; }
         .choice-label { position: absolute; bottom: 0; width: 100%; background: rgba(0,0,0,0.7); padding: 10px; font-size: 1.2rem; }
         
         /* 管理介面 (縮排清單) */
         #admin { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; overflow-y: auto; padding: 20px; text-align: left; }
-        .outline-item { margin-left: 25px; border-left: 2px dashed #444; padding: 10px 0 10px 15px; position: relative; }
-        .outline-item::before { content: "┕"; position: absolute; left: 0; color: #444; }
-        .item-card { background: var(--card); padding: 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; }
-        .item-card img { width: 40px; height: 40px; border-radius: 5px; object-fit: cover; }
-        .btn-sm { font-size: 0.8rem; padding: 4px 8px; cursor: pointer; background: #444; color: #fff; border: none; border-radius: 4px; }
-        .btn-add { background: #2ed573; }
+        .outline-item { margin-left: 20px; border-left: 1px solid #444; padding: 5px 0 5px 15px; position: relative; }
+        .item-card { background: var(--card); padding: 8px; border-radius: 8px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+        .item-card img { width: 45px; height: 45px; border-radius: 5px; object-fit: cover; cursor: pointer; border: 1px solid #555; }
+        .item-card input { background: #2a2a2a; border: 1px solid #444; color: white; padding: 5px; border-radius: 4px; flex-grow: 1; }
+        
+        .btn-sm { font-size: 0.8rem; padding: 6px 10px; cursor: pointer; background: #444; color: #fff; border: none; border-radius: 4px; }
+        .btn-add { background: #2ed573; font-weight: bold; }
         .btn-del { background: #ff4757; }
-        .btn-save { position: sticky; bottom: 20px; width: 100%; padding: 15px; background: var(--primary); font-weight: bold; font-size: 1.1rem; }
+        .btn-save { position: sticky; bottom: 20px; width: 100%; padding: 15px; background: var(--primary); font-weight: bold; font-size: 1.1rem; border: none; border-radius: 10px; color: white; cursor: pointer; margin-top: 20px; }
         
         #result-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.95); z-index: 2000; padding: 40px 20px; }
-        .loading { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 3000; align-items: center; justify-content: center; }
+        .loading { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 3000; align-items: center; justify-content: center; flex-direction: column; }
+        
+        .badge { font-size: 0.7rem; background: #555; padding: 2px 5px; border-radius: 3px; color: #ccc; }
     </style>
 </head>
 <body>
 
-<div id="loader" class="loading">處理中...</div>
+<div id="loader" class="loading">
+    <div style="border: 4px solid #f3f3f3; border-top: 4px solid var(--primary); border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite;"></div>
+    <p>圖片壓縮上傳中...</p>
+</div>
 
 <div id="game-ui">
-    <div class="title">🍔 糾結終結者</div>
-    <div id="breadcrumb" style="color:#888; margin-bottom:10px; font-size:0.9rem;"></div>
-    <div class="game-container" id="choices-area">
-        </div>
-    <div style="margin-top: 20px;">
+    <div class="title">🍔 糾結終結者：決策魔樹</div>
+    <div class="game-container" id="choices-area"></div>
+    <div style="margin-top: 30px;">
         <button class="btn-sm" onclick="resetGame()">↩ 重頭開始</button>
-        <button class="btn-sm" onclick="openAdmin()" style="margin-left:10px;">⚙️ 設定路徑</button>
+        <button class="btn-sm" onclick="openAdmin()" style="margin-left:10px; background: #555;">⚙️ 設定路徑</button>
     </div>
 </div>
 
 <div id="result-overlay">
     <h2 style="color:var(--primary)">最後決定吃：</h2>
-    <img id="res-img" style="width:100%; max-height:60vh; border-radius:15px; object-fit: cover;">
+    <img id="res-img" style="width:100%; max-height:50vh; border-radius:15px; object-fit: cover; margin: 20px 0;">
     <h1 id="res-name"></h1>
     <button class="btn-save" style="position:static" onclick="location.reload()">再玩一次</button>
 </div>
 
 <div id="admin">
-    <h2>🌲 設定選餐路徑 (縮排清單)</h2>
-    <p style="font-size:0.8rem; color:#aaa;">點擊「+」在該選項下新增下一題的對手</p>
+    <h2>🌲 設定選餐路徑</h2>
+    <p style="font-size:0.8rem; color:#aaa; margin-bottom: 20px;">
+        💡 提示：點擊「+」會自動建立一組對決，其中一個會繼承父項。點擊小圖示可換圖。
+    </p>
     <div id="outline-root">
-        <button class="btn-add" onclick="addNewItem(0)">+ 新增第一關選項</button>
-        <div id="tree-container"></div>
+        <button class="btn-add" onclick="addNewItem(0)">+ 新增起始對決 (第一關)</button>
+        <div id="tree-container" style="margin-top: 15px;"></div>
     </div>
-    <button class="btn-save" onclick="saveToCloud()">💾 儲存所有變更並發布</button>
+    <button class="btn-save" onclick="saveToCloud()">💾 儲存所有變更並同步雲端</button>
     <button class="btn-sm" style="width:100%; margin-top:10px; background:#333;" onclick="location.reload()">取消並返回</button>
 </div>
 
 <script>
-    const SB_URL = "https://zmgpnqluwxwkntdrwieg.supabase.co";
-    const SB_KEY = "sb_publishable_z_i1UJ15EOU6z7_Bv3dAvg_lWoG3UA7";
+    // --- 🔑 請在此填入你的 Supabase 資訊 ---
+    const SB_URL = "你的URL";
+    const SB_KEY = "你的KEY";
     const client = supabase.createClient(SB_URL, SB_KEY);
 
-    let allData = []; // 雲端總資料
-    let currentParentId = 0; // 遊戲目前進度
+    let allData = [];
+    let currentParentId = 0;
 
-    // 1. 初始化
     async function init() {
         const { data } = await client.from('restaurants').select('*');
         allData = data || [];
         renderGame();
     }
 
-    // 2. 遊戲邏輯
+    // --- 遊戲邏輯 ---
     function renderGame() {
         const choices = allData.filter(item => item.parent_id == currentParentId);
         const area = document.getElementById('choices-area');
         area.innerHTML = '';
 
         if (choices.length === 0) {
-            // 如果沒東西，可能是沒資料
-            area.innerHTML = '<p>目前沒有資料，請點擊下方設定</p>';
+            area.innerHTML = '<p style="color:#666">目前沒有資料，請點擊下方設定按鈕</p>';
             return;
         }
 
@@ -96,10 +101,7 @@
             const div = document.createElement('div');
             div.className = 'choice-box';
             div.onclick = () => handleChoice(item);
-            div.innerHTML = `
-                <img src="${item.image_url}">
-                <div class="choice-label">${item.name}</div>
-            `;
+            div.innerHTML = `<img src="${item.image_url}"><div class="choice-label">${item.name}</div>`;
             area.appendChild(div);
         });
     }
@@ -107,11 +109,9 @@
     function handleChoice(selected) {
         const children = allData.filter(item => item.parent_id == selected.id);
         if (children.length > 0) {
-            // 還有下一關
             currentParentId = selected.id;
             renderGame();
         } else {
-            // 到終點了
             showResult(selected);
         }
     }
@@ -127,7 +127,7 @@
         renderGame();
     }
 
-    // 3. 管理員邏輯 (縮排介面)
+    // --- 管理邏輯 ---
     function openAdmin() {
         document.getElementById('admin').style.display = 'block';
         renderTree();
@@ -145,9 +145,9 @@
             wrapper.className = 'outline-item';
             wrapper.innerHTML = `
                 <div class="item-card">
-                    <img src="${item.image_url}" onclick="changeImg(${item.id})">
-                    <input type="text" value="${item.name}" onchange="updateName(${item.id}, this.value)" style="background:none; border:none; color:white; border-bottom:1px solid #444;">
-                    <button class="btn-add btn-sm" onclick="addNewItem(${item.id})">+</button>
+                    <img src="${item.image_url}" onclick="changeImg(${item.id})" title="點擊更換照片">
+                    <input type="text" value="${item.name}" onchange="updateName(${item.id}, this.value)">
+                    <button class="btn-add btn-sm" onclick="addNewItem(${item.id})" title="新增下一題對手">+</button>
                     <button class="btn-del btn-sm" onclick="deleteItem(${item.id})">×</button>
                 </div>
                 <div id="child-of-${item.id}"></div>
@@ -157,14 +157,34 @@
         });
     }
 
+    // 邏輯優化：點擊 + 自動生兩個 (一個繼承，一個空白)
     function addNewItem(pid) {
-        const newId = Date.now();
-        allData.push({
-            id: newId,
-            name: "新選項",
-            image_url: "https://via.placeholder.com/150?text=Wait+Image",
-            parent_id: pid
-        });
+        const parent = allData.find(d => d.id == pid);
+        const now = Date.now();
+        
+        if (pid !== 0 && parent) {
+            // 子關卡：自動產生一組對決
+            allData.push({
+                id: now,
+                name: parent.name, 
+                image_url: parent.image_url,
+                parent_id: pid
+            });
+            allData.push({
+                id: now + 1,
+                name: "新選項",
+                image_url: "https://via.placeholder.com/400x200?text=New+Choice",
+                parent_id: pid
+            });
+        } else {
+            // 第一關：單個新增
+            allData.push({
+                id: now,
+                name: "新起始選項",
+                image_url: "https://via.placeholder.com/400x200?text=Start+Choice",
+                parent_id: 0
+            });
+        }
         renderTree();
     }
 
@@ -174,42 +194,95 @@
     }
 
     function deleteItem(id) {
-        allData = allData.filter(d => d.id != id && d.parent_id != id);
-        renderTree();
+        if(confirm("確定刪除嗎？這將會連同它下面的所有分支一起刪除。")) {
+            const toDelete = [id];
+            const findChildren = (pid) => {
+                allData.filter(d => d.parent_id == pid).forEach(c => {
+                    toDelete.push(c.id);
+                    findChildren(c.id);
+                });
+            };
+            findChildren(id);
+            allData = allData.filter(d => !toDelete.includes(d.id));
+            renderTree();
+        }
     }
 
+    // 效能優化：圖片自動壓縮
     async function changeImg(id) {
         const input = document.createElement('input');
         input.type = 'file';
+        input.accept = 'image/*';
         input.onchange = async (e) => {
             const file = e.target.files[0];
+            if (!file) return;
+            
             document.getElementById('loader').style.display = 'flex';
-            const fileName = `tree_${Date.now()}.jpg`;
-            const { data } = await client.storage.from('food-images').upload(fileName, file);
-            if (data) {
-                const url = `${SB_URL}/storage/v1/object/public/food-images/${fileName}`;
+            
+            const compressedUrl = await compressAndUpload(file);
+            if (compressedUrl) {
                 const item = allData.find(d => d.id == id);
-                item.image_url = url;
+                item.image_url = compressedUrl;
                 renderTree();
+            } else {
+                alert("上傳失敗，請再試一次");
             }
             document.getElementById('loader').style.display = 'none';
         };
         input.click();
     }
 
+    async function compressAndUpload(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800; 
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > MAX_WIDTH) {
+                        height *= MAX_WIDTH / width;
+                        width = MAX_WIDTH;
+                    }
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    canvas.toBlob(async (blob) => {
+                        const fileName = `tree_${Date.now()}.jpg`;
+                        const { data, error } = await client.storage.from('food-images').upload(fileName, blob);
+                        if (error) { resolve(null); }
+                        else {
+                            const url = `${SB_URL}/storage/v1/object/public/food-images/${fileName}`;
+                            resolve(url);
+                        }
+                    }, 'image/jpeg', 0.7); // 壓縮品質設為 0.7
+                };
+            };
+        });
+    }
+
     async function saveToCloud() {
         document.getElementById('loader').style.display = 'flex';
-        // 簡單做法：清空再寫入
+        // 採刪除舊有資料再插入新資料的方式同步
         await client.from('restaurants').delete().neq('id', 0);
         const { error } = await client.from('restaurants').insert(allData);
         if (!error) {
-            alert("雲端同步成功！");
+            alert("🎉 雲端魔樹同步成功！");
             location.reload();
         } else {
-            alert("錯誤：" + error.message);
+            alert("儲存出錯：" + error.message);
         }
         document.getElementById('loader').style.display = 'none';
     }
+
+    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
     init();
 </script>
