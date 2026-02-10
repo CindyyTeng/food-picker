@@ -161,9 +161,19 @@
     function getTaiwanTime(){
         const now = new Date();
         //加上8小時的毫秒數
-        const tzOffset = 8 * 60 * 60 * 1000;
-        const taiwanDate = new Date(now.getTime() + tzOffset );
+        const offset = 8 * 60 * 60 * 1000;
+        const twTime = new Date(now.getTime() + offset );
         return taiwanDate.toISOString().replace('T', '').substring(0, 19);
+
+        // 手動組裝成 YYYY-MM-DD HH:mm:ss 格式
+        const yyyy = twTime.getUTCFullYear();
+        const mm = String(twTime.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(twTime.getUTCDate()).padStart(2, '0');
+        const hh = String(twTime.getUTCHours()).padStart(2, '0');
+        const min = String(twTime.getUTCMinutes()).padStart(2, '0');
+        const ss = String(twTime.getUTCSeconds()).padStart(2, '0');
+        
+        return `${yyyy}-${mm}-${dd} ${hh}:${min}:${ss}`;
     }
 
     // 邏輯優化：點擊 + 自動生兩個 (一個繼承，一個空白)
