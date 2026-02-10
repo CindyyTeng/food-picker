@@ -162,8 +162,7 @@
         const now = new Date();
         //加上8小時的毫秒數
         const offset = 8 * 60 * 60 * 1000;
-        const twTime = new Date(now.getTime() + offset );
-        return taiwanDate.toISOString().replace('T', '').substring(0, 19);
+        const twTime = new Date(now.getTime() + offset );    
 
         // 手動組裝成 YYYY-MM-DD HH:mm:ss 格式
         const yyyy = twTime.getUTCFullYear();
