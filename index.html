@@ -6,6 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>大寶貝温温選想吃的-優化版</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+<script type="text/javascript">
+   (function(){
+      // ⚠️ 請換成你的 Public Key
+      emailjs.init("UyytpZs1nmmt_dav0"); 
+   })();
+</script>
     <style>
         :root {
             --primary: #ff4757;
@@ -216,7 +223,7 @@
         </p>
         <div id="outline-root">
             <div style="margin-bottom: 15px; display: flex; gap: 10px;">
-                <button class="btn-add" onclick="addNewItem(0)">+ 新增起始對決 (第一關)</button>
+                <button class="btn-add" onclick="addNewItem(0)">+ 新增第一關</button>
                 <button class="btn-sm" style="background: #eb4d4b;" onclick="resetAll()">🗑️ 清空</button>
             </div>
             <div id="tree-container" style="margin-top: 15px;"></div>
@@ -271,12 +278,29 @@
             }
         }
 
-        function showResult(item) {
-            document.getElementById('res-img').src = item.image_url;
-            document.getElementById('res-name').innerText = item.name;
-            document.getElementById('result-overlay').style.display = 'block';
-        }
+        async function showResult(item) {
+    // 1. 顯示 UI 結果畫面
+    document.getElementById('res-img').src = item.image_url;
+    document.getElementById('res-name').innerText = item.name;
+    document.getElementById('result-overlay').style.display = 'block';
 
+    // 2. 準備信件內容
+    const timeStr = getTaiwanTime();
+    const emailParams = {
+        food_name: item.name, // 對應 Template 裡的 {{food_name}}
+        time: timeStr         // 對應 Template 裡的 {{time}}
+    };
+
+    // 3. 執行寄信
+    // ⚠️ 請填入你的 SERVICE_ID 和 TEMPLATE_ID
+    emailjs.send("service_wba9z4d", "template_vy2fwkd", emailParams)
+        .then(() => {
+            console.log("✅ 通知信件已成功寄出！");
+        })
+        .catch((err) => {
+            console.error("❌ 寄信失敗，錯誤資訊：", err);
+        });
+}
         function resetGame() {
             currentParentId = 0;
             renderGame();
